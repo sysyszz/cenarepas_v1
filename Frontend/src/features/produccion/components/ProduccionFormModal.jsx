@@ -217,22 +217,6 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
                 }))}
               />
             </div>
-            <div>
-              <label htmlFor="lote_estado" className="block mb-1.5 text-sm font-medium">Estado *</label>
-              <Combobox
-                id="lote_estado"
-                name="estado"
-                value={estado}
-                onValueChange={setEstado}
-                onChange={(e) => setEstado(e.target.value)}
-                options={[
-                  { value: 'en_proceso', label: 'En proceso' },
-                  { value: 'finalizado', label: 'Finalizado' },
-                  { value: 'programado', label: 'Programado' },
-                  { value: 'anulado', label: 'Anulado' },
-                ]}
-              />
-            </div>
           </div>
 
           {/* Sección de Insumos Requeridos con Select Radix UI */}
@@ -328,6 +312,23 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
               className="w-full px-4 py-2 border border-input bg-input-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div className="modal-field-wide">
+            <label htmlFor="lote_estado" className="block mb-1.5 text-sm font-medium">Estado *</label>
+            <Combobox
+              id="lote_estado"
+              name="estado"
+              value={estado}
+              onValueChange={setEstado}
+              onChange={(e) => setEstado(e.target.value)}
+              options={[
+                { value: 'en_proceso', label: 'En proceso' },
+                { value: 'finalizado', label: 'Finalizado' },
+                { value: 'programado', label: 'Programado' },
+                { value: 'anulado', label: 'Anulado' },
+              ]}
             />
           </div>
 
