@@ -211,7 +211,7 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
                 value={idUsuarioResponsable}
                 onValueChange={setIdUsuarioResponsable}
                 onChange={(e) => setIdUsuarioResponsable(e.target.value)}
-                options={mockUsuarios.map((u) => ({
+                options={usuarios.map((u) => ({
                   value: String(u.id_usuario),
                   label: u.nombre,
                 }))}
