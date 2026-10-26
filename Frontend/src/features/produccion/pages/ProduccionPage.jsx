@@ -199,7 +199,7 @@ export default function ProduccionPage() {
         emptyIcon={Factory}
         entityName="órdenes de producción"
         onAdd={() => {
-          setSelectedProduccion(null);
+          setSelectedLote(null);
           setShowModal(true);
         }}
         addLabel="Nueva Orden"

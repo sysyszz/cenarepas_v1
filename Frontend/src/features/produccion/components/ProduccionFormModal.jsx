@@ -37,12 +37,10 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
       setIdFicha(lote.id_ficha ? String(lote.id_ficha) : '1');
       setCantidadProducida(lote.cantidad_producida != null ? String(lote.cantidad_producida) : '');
       setIdUsuarioResponsable(lote.id_usuario_responsable ? String(lote.id_usuario_responsable) : '1');
-      setFechaProduccion(lote.fecha_produccion || '');
+      setFechaProduccion(lote.fecha_produccion ? String(lote.fecha_produccion).slice(0, 10) : '');
       setEstado(lote.estado || 'en_proceso');
       setObservaciones(lote.observaciones || '');
-      if (Array.isArray(lote.insumos)) {
-        setInsumosList(lote.insumos);
-      }
+      setInsumosList(Array.isArray(lote.insumos) ? lote.insumos : []);
     } else {
       setIdFicha(fichas[0]?.id_ficha ? String(fichas[0].id_ficha) : '1');
       setCantidadProducida('');
@@ -50,12 +48,13 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
       setFechaProduccion(new Date().toISOString().split('T')[0]);
       setEstado('en_proceso');
       setObservaciones('');
+      setInsumosList([]);
     }
   }, [lote, open, fichas, usuarios]);
 
   // Actualizar insumos requeridos cuando cambia la ficha seleccionada
   useEffect(() => {
-    if (!idFicha || lote) return;
+    if (!open || !idFicha || lote) return;
     getFichaTecnicaInsumos(idFicha).then((recipeInsumos) => {
       if (Array.isArray(recipeInsumos) && recipeInsumos.length > 0) {
         setInsumosList(
@@ -71,7 +70,7 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
         );
       }
     }).catch(() => {});
-  }, [idFicha, availableInsumos, lote]);
+  }, [open, idFicha, availableInsumos, lote]);
 
 
   if (!open) return null;
@@ -202,21 +201,19 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="lote_id_usuario_responsable" className="block mb-1.5 text-sm font-medium">Usuario Responsable *</label>
-              <Combobox
-                id="lote_id_usuario_responsable"
-                name="id_usuario_responsable"
-                value={idUsuarioResponsable}
-                onValueChange={setIdUsuarioResponsable}
-                onChange={(e) => setIdUsuarioResponsable(e.target.value)}
-                options={usuarios.map((u) => ({
-                  value: String(u.id_usuario),
-                  label: u.nombre,
-                }))}
-              />
-            </div>
+          <div className="modal-field-wide">
+            <label htmlFor="lote_id_usuario_responsable" className="block mb-1.5 text-sm font-medium">Usuario Responsable *</label>
+            <Combobox
+              id="lote_id_usuario_responsable"
+              name="id_usuario_responsable"
+              value={idUsuarioResponsable}
+              onValueChange={setIdUsuarioResponsable}
+              onChange={(e) => setIdUsuarioResponsable(e.target.value)}
+              options={usuarios.map((u) => ({
+                value: String(u.id_usuario),
+                label: u.nombre,
+              }))}
+            />
           </div>
 
           {/* Sección de Insumos Requeridos con Select Radix UI */}
