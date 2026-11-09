@@ -4,10 +4,11 @@ import { getCategorias } from '../../categorias/services/categoriasService';
 import { getFichasTecnicas } from '../../fichas-tecnicas/services/fichasTecnicasService';
 import { getProveedores } from '../../proveedores/services/proveedoresService';
 import { Combobox } from '../../../shared/ui/Combobox';
+import { formatDate } from '../../../shared/utils/formatDate';
 
 export function ProductoFormModal({ open, onClose, producto = null, onSave, isLoading = false }) {
   const [nombre, setNombre] = useState('');
-  const [idCategoria, setIdCategoria] = useState('1');
+  const [idCategoria, setIdCategoria] = useState('');
   const [precioVenta, setPrecioVenta] = useState('');
   const [stockActual, setStockActual] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -39,7 +40,7 @@ export function ProductoFormModal({ open, onClose, producto = null, onSave, isLo
   useEffect(() => {
     if (producto) {
       setNombre(producto.nombre || '');
-      setIdCategoria(producto.id_categoria ? String(producto.id_categoria) : (categorias[0]?.id_categoria ? String(categorias[0].id_categoria) : '1'));
+      setIdCategoria(producto.id_categoria ? String(producto.id_categoria) : (categorias[0]?.id_categoria ? String(categorias[0].id_categoria) : ''));
       setPrecioVenta(producto.precio_venta != null ? String(producto.precio_venta) : '');
       setStockActual(producto.stock_actual != null ? String(producto.stock_actual) : '0');
       setDescripcion(producto.descripcion || '');
@@ -48,11 +49,11 @@ export function ProductoFormModal({ open, onClose, producto = null, onSave, isLo
       setImagenUrl(producto.imagen_url || '');
       setUrlInput('');
       setStockMinimo(producto.stock_minimo != null ? String(producto.stock_minimo) : '0');
-      setFechaVencimiento(producto.fecha_vencimiento || '');
+      setFechaVencimiento(formatDate(producto.fecha_vencimiento, { forInput: true }));
       setEstado(producto.estado || 'activo');
     } else {
       setNombre('');
-      setIdCategoria(categorias[0]?.id_categoria ? String(categorias[0].id_categoria) : '1');
+      setIdCategoria(categorias[0]?.id_categoria ? String(categorias[0].id_categoria) : '');
       setPrecioVenta('');
       setStockActual('0');
       setDescripcion('');
@@ -86,14 +87,22 @@ export function ProductoFormModal({ open, onClose, producto = null, onSave, isLo
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!nombre.trim()) return;
+    const stockActualNumber = Number(stockActual);
+    const stockInput = e.currentTarget.elements.namedItem('stock_actual');
+    if (stockActual === '' || !Number.isSafeInteger(stockActualNumber) || stockActualNumber < 0) {
+      stockInput.setCustomValidity('El stock actual debe ser un número entero mayor o igual a 0');
+      stockInput.reportValidity();
+      return;
+    }
+    stockInput.setCustomValidity('');
 
     const payload = producto
       ? {
           ...producto,
           nombre: nombre.trim(),
-          id_categoria: Number(idCategoria) || 1,
+          id_categoria: idCategoria ? Number(idCategoria) : null,
           precio_venta: Number(precioVenta) || 0,
-          stock_actual: Number(stockActual) || 0,
+          stock_actual: stockActualNumber,
           descripcion: descripcion.trim() || null,
           id_ficha: idFicha ? Number(idFicha) : null,
           id_proveedor: idProveedor ? Number(idProveedor) : null,
@@ -104,9 +113,9 @@ export function ProductoFormModal({ open, onClose, producto = null, onSave, isLo
         }
       : {
           nombre: nombre.trim(),
-          id_categoria: Number(idCategoria) || 1,
+          id_categoria: idCategoria ? Number(idCategoria) : null,
           precio_venta: Number(precioVenta) || 0,
-          stock_actual: Number(stockActual) || 0,
+          stock_actual: stockActualNumber,
           descripcion: descripcion.trim() || null,
           id_ficha: idFicha ? Number(idFicha) : null,
           id_proveedor: idProveedor ? Number(idProveedor) : null,
@@ -167,6 +176,7 @@ export function ProductoFormModal({ open, onClose, producto = null, onSave, isLo
                 name="id_categoria"
                 value={idCategoria}
                 onChange={(e) => setIdCategoria(e.target.value)}
+                required
                 options={categorias.map((cat) => ({
                   value: String(cat.id_categoria),
                   label: cat.nombre,
@@ -192,15 +202,20 @@ export function ProductoFormModal({ open, onClose, producto = null, onSave, isLo
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="producto_stock_actual" className="block mb-1.5 text-sm font-medium">Stock Inicial</label>
+              <label htmlFor="producto_stock_actual" className="block mb-1.5 text-sm font-medium">Stock actual</label>
               <input
                 id="producto_stock_actual"
                 name="stock_actual"
                 type="number"
                 min="0"
+                step="1"
+                required
                 placeholder="Ej. 100"
                 value={stockActual}
-                onChange={(e) => setStockActual(e.target.value)}
+                onChange={(e) => {
+                  e.currentTarget.setCustomValidity('');
+                  setStockActual(e.target.value);
+                }}
                 className="w-full px-4 py-2 border border-input bg-input-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
@@ -339,19 +354,6 @@ export function ProductoFormModal({ open, onClose, producto = null, onSave, isLo
                 className="w-full px-4 py-2 border border-input bg-input-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            <div>
-              <label htmlFor="producto_estado" className="block mb-1.5 text-sm font-medium">Estado</label>
-              <Combobox
-                id="producto_estado"
-                name="estado"
-                value={estado}
-                onChange={(e) => setEstado(e.target.value)}
-                options={[
-                  { value: 'activo', label: 'Activo' },
-                  { value: 'inactivo', label: 'Inactivo' },
-                ]}
-              />
-            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -389,6 +391,20 @@ export function ProductoFormModal({ open, onClose, producto = null, onSave, isLo
                 ]}
               />
             </div>
+          </div>
+
+          <div className="modal-field-wide">
+            <label htmlFor="producto_estado" className="block mb-1.5 text-sm font-medium">Estado</label>
+            <Combobox
+              id="producto_estado"
+              name="estado"
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+              options={[
+                { value: 'activo', label: 'Activo' },
+                { value: 'inactivo', label: 'Inactivo' },
+              ]}
+            />
           </div>
 
           <div className="flex gap-2 pt-4 border-t border-border">

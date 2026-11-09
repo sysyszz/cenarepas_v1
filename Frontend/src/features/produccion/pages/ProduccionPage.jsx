@@ -14,6 +14,7 @@ import { MetricCard } from '../../../shared/components/MetricCard';
 import { usePermissions } from '../../../shared/contexts/PermissionContext';
 import StatusSwitch from '../../../shared/components/StatusSwitch';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { formatDate } from '../../../shared/utils/formatDate';
 
 export default function ProduccionPage() {
   const { can } = usePermissions();
@@ -31,6 +32,8 @@ export default function ProduccionPage() {
     setDeleteDialog,
     isDeleting,
     isSaving,
+    isLoading,
+    hasLoadError,
     handleSave,
     handleAnular,
   } = useProduccion();
@@ -42,10 +45,16 @@ export default function ProduccionPage() {
 
   const getLoteInsumosList = (lote) => {
     if (!lote) return [];
-    if (Array.isArray(lote.insumos) && lote.insumos.length > 0) {
-      return lote.insumos;
-    }
-    return [];
+    const insumos = Array.isArray(lote.insumos) ? lote.insumos : lote.insumos_consumidos;
+    if (!Array.isArray(insumos)) return [];
+    return insumos.map((item) => ({
+      ...item,
+      nombre: item.insumo_nombre || item.nombre || '—',
+      cantidad: item.cantidad ?? item.cantidad_consumida,
+      unidad_medida: item.unidad_medida ||
+        insumosList.find((insumo) => String(insumo.id_insumo) === String(item.id_insumo))?.unidad_medida ||
+        '—',
+    }));
   };
 
   useEffect(() => {
@@ -131,7 +140,7 @@ export default function ProduccionPage() {
       {
         key: 'fecha_produccion',
         label: 'Fecha',
-        render: (value) => <span className="text-muted-foreground text-sm">{value}</span>,
+        render: (value) => <span className="text-muted-foreground text-sm">{formatDate(value)}</span>,
       },
       {
         key: 'estado',
@@ -186,10 +195,10 @@ export default function ProduccionPage() {
 
       {/* Tarjetas de Consolidado */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard index={0} title="Total Lotes" value={totalLotes} icon={Factory} variant="primary" />
-        <MetricCard index={1} title="Finalizados" value={finalizados} icon={CheckCircle} variant="success" />
-        <MetricCard index={2} title="En Proceso" value={enProceso} icon={Clock} variant="warning" />
-        <MetricCard index={3} title="Programados" value={programados} icon={Calendar} variant="accent" />
+        <MetricCard index={0} title="Total Lotes" value={isLoading || hasLoadError ? '—' : totalLotes} icon={Factory} variant="primary" />
+        <MetricCard index={1} title="Finalizados" value={isLoading || hasLoadError ? '—' : finalizados} icon={CheckCircle} variant="success" />
+        <MetricCard index={2} title="En Proceso" value={isLoading || hasLoadError ? '—' : enProceso} icon={Clock} variant="warning" />
+        <MetricCard index={3} title="Programados" value={isLoading || hasLoadError ? '—' : programados} icon={Calendar} variant="accent" />
       </div>
 
       {/* Tabla con DataTable y RowActions */}
@@ -199,7 +208,7 @@ export default function ProduccionPage() {
         emptyIcon={Factory}
         entityName="órdenes de producción"
         onAdd={() => {
-          setSelectedProduccion(null);
+          setSelectedLote(null);
           setShowModal(true);
         }}
         addLabel="Nueva Orden"
@@ -231,8 +240,13 @@ export default function ProduccionPage() {
           { label: 'ID', value: `#${detailModal.data.id_lote}` },
           { label: 'Ficha / Receta', value: fichasNames[detailModal.data.id_ficha] || `Receta #${detailModal.data.id_ficha}` },
           { label: 'Responsable', value: usuariosNames[detailModal.data.id_usuario_responsable] || `Usuario #${detailModal.data.id_usuario_responsable}` },
-          { label: 'Fecha de Producción', value: detailModal.data.fecha_produccion },
-          { label: 'Cantidad Producida', value: `${Number(detailModal.data.cantidad_producida || 0).toLocaleString('es-CO')} und` },
+          { label: 'Fecha de Producción', value: formatDate(detailModal.data.fecha_produccion) },
+          {
+            label: 'Cantidad Producida',
+            value: detailModal.data.cantidad_producida == null || detailModal.data.cantidad_producida === ''
+              ? '—'
+              : `${Number(detailModal.data.cantidad_producida).toLocaleString('es-CO')} und`,
+          },
           {
             label: 'Insumos Utilizados',
             value: (() => {
@@ -244,7 +258,7 @@ export default function ProduccionPage() {
                     <div key={idx} className="flex items-center justify-between gap-3 text-xs bg-card p-1.5 rounded border border-border/50">
                       <span className="font-medium text-foreground">{item.nombre}</span>
                       <span className="font-semibold text-primary px-2 py-0.5 bg-primary/10 rounded">
-                        {item.cantidad} {item.unidad_medida || 'kg'}
+                        {item.cantidad} {item.unidad_medida || '—'}
                       </span>
                     </div>
                   ))}

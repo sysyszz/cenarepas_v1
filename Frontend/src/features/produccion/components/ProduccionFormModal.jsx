@@ -4,11 +4,13 @@ import { getFichasTecnicas, getFichaTecnicaInsumos } from '../../fichas-tecnicas
 import { getInsumos } from '../../insumos/services/insumosService';
 import { getUsuarios } from '../../usuarios/services/usuariosService';
 import { Combobox } from '../../../shared/ui/Combobox';
+import { formatDate } from '../../../shared/utils/formatDate';
+import { toast } from '../../../shared/utils/toast';
 
 export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoading = false }) {
-  const [idFicha, setIdFicha] = useState('1');
+  const [idFicha, setIdFicha] = useState('');
   const [cantidadProducida, setCantidadProducida] = useState('');
-  const [idUsuarioResponsable, setIdUsuarioResponsable] = useState('1');
+  const [idUsuarioResponsable, setIdUsuarioResponsable] = useState('');
   const [fechaProduccion, setFechaProduccion] = useState('');
   const [estado, setEstado] = useState('en_proceso');
   const [observaciones, setObservaciones] = useState('');
@@ -34,30 +36,41 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
 
   useEffect(() => {
     if (lote) {
-      setIdFicha(lote.id_ficha ? String(lote.id_ficha) : '1');
+      setIdFicha(lote.id_ficha ? String(lote.id_ficha) : '');
       setCantidadProducida(lote.cantidad_producida != null ? String(lote.cantidad_producida) : '');
-      setIdUsuarioResponsable(lote.id_usuario_responsable ? String(lote.id_usuario_responsable) : '1');
-      setFechaProduccion(lote.fecha_produccion || '');
+      setIdUsuarioResponsable(lote.id_usuario_responsable ? String(lote.id_usuario_responsable) : '');
+      setFechaProduccion(formatDate(lote.fecha_produccion, { forInput: true }));
       setEstado(lote.estado || 'en_proceso');
       setObservaciones(lote.observaciones || '');
-      if (Array.isArray(lote.insumos)) {
-        setInsumosList(lote.insumos);
-      }
+      const loteInsumos = Array.isArray(lote.insumos) ? lote.insumos : lote.insumos_consumidos;
+      setInsumosList(Array.isArray(loteInsumos) ? loteInsumos.map((item) => {
+        const ins = availableInsumos.find((availableItem) => availableItem.id_insumo === item.id_insumo);
+        return {
+          ...item,
+          nombre: item.insumo_nombre || item.nombre || ins?.nombre || '—',
+          cantidad: item.cantidad ?? item.cantidad_consumida,
+          unidad_medida: item.unidad_medida || ins?.unidad_medida || '—',
+        };
+      }) : []);
     } else {
-      setIdFicha(fichas[0]?.id_ficha ? String(fichas[0].id_ficha) : '1');
+      setIdFicha(fichas[0]?.id_ficha ? String(fichas[0].id_ficha) : '');
       setCantidadProducida('');
-      setIdUsuarioResponsable(usuarios[0]?.id_usuario ? String(usuarios[0].id_usuario) : '1');
-      setFechaProduccion(new Date().toISOString().split('T')[0]);
+      setIdUsuarioResponsable(usuarios[0]?.id_usuario ? String(usuarios[0].id_usuario) : '');
+      setFechaProduccion(formatDate(new Date(), { forInput: true }));
       setEstado('en_proceso');
       setObservaciones('');
     }
-  }, [lote, open, fichas, usuarios]);
+  }, [lote, open, fichas, usuarios, availableInsumos]);
 
   // Actualizar insumos requeridos cuando cambia la ficha seleccionada
   useEffect(() => {
     if (!idFicha || lote) return;
-    getFichaTecnicaInsumos(idFicha).then((recipeInsumos) => {
-      if (Array.isArray(recipeInsumos) && recipeInsumos.length > 0) {
+    getFichaTecnicaInsumos(idFicha)
+      .then((ficha) => {
+        const recipeInsumos = Array.isArray(ficha) ? ficha : ficha?.insumos;
+        if (!Array.isArray(recipeInsumos)) {
+          throw new Error('La respuesta de insumos de la receta no es válida');
+        }
         setInsumosList(
           recipeInsumos.map((item) => {
             const ins = availableInsumos.find((i) => i.id_insumo === item.id_insumo);
@@ -65,12 +78,14 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
               id_insumo: item.id_insumo,
               nombre: ins?.nombre || item.insumo_nombre || `Insumo #${item.id_insumo}`,
               cantidad: item.cantidad,
-              unidad_medida: item.unidad_medida || ins?.unidad_medida || 'kg',
+              unidad_medida: item.unidad_medida || ins?.unidad_medida || '—',
             };
           })
         );
-      }
-    }).catch(() => {});
+      })
+      .catch((error) => {
+        toast.error(error.message || 'No se pudieron cargar los insumos de la receta');
+      });
   }, [idFicha, availableInsumos, lote]);
 
 
@@ -93,7 +108,7 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
           id_insumo: ins.id_insumo,
           nombre: ins.nombre,
           cantidad: Number(cantidadInsumo),
-          unidad_medida: ins.unidad_medida || 'kg',
+          unidad_medida: ins.unidad_medida || '—',
         },
       ]);
     }
@@ -110,19 +125,19 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
     const payload = lote
       ? {
           ...lote,
-          id_ficha: Number(idFicha) || 1,
+          id_ficha: idFicha ? Number(idFicha) : null,
           cantidad_producida: Number(cantidadProducida) || 0,
-          id_usuario_responsable: Number(idUsuarioResponsable) || 1,
-          fecha_produccion: fechaProduccion || new Date().toISOString().split('T')[0],
+          id_usuario_responsable: idUsuarioResponsable ? Number(idUsuarioResponsable) : null,
+          fecha_produccion: formatDate(fechaProduccion || new Date(), { forInput: true }),
           insumos: insumosList,
           estado,
           observaciones: observaciones.trim() || null,
         }
       : {
-          id_ficha: Number(idFicha) || 1,
+          id_ficha: idFicha ? Number(idFicha) : null,
           cantidad_producida: Number(cantidadProducida) || 0,
-          id_usuario_responsable: Number(idUsuarioResponsable) || 1,
-          fecha_produccion: fechaProduccion || new Date().toISOString().split('T')[0],
+          id_usuario_responsable: idUsuarioResponsable ? Number(idUsuarioResponsable) : null,
+          fecha_produccion: formatDate(fechaProduccion || new Date(), { forInput: true }),
           insumos: insumosList,
           estado: estado || 'en_proceso',
           observaciones: observaciones.trim() || null,
@@ -165,6 +180,7 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
               value={idFicha}
               onValueChange={setIdFicha}
               onChange={(e) => setIdFicha(e.target.value)}
+              required
               options={fichas.map((f) => ({
                 value: String(f.id_ficha),
                 label: f.nombre,
@@ -211,26 +227,11 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
                 value={idUsuarioResponsable}
                 onValueChange={setIdUsuarioResponsable}
                 onChange={(e) => setIdUsuarioResponsable(e.target.value)}
-                options={mockUsuarios.map((u) => ({
+                required
+                options={usuarios.map((u) => ({
                   value: String(u.id_usuario),
                   label: u.nombre,
                 }))}
-              />
-            </div>
-            <div>
-              <label htmlFor="lote_estado" className="block mb-1.5 text-sm font-medium">Estado *</label>
-              <Combobox
-                id="lote_estado"
-                name="estado"
-                value={estado}
-                onValueChange={setEstado}
-                onChange={(e) => setEstado(e.target.value)}
-                options={[
-                  { value: 'en_proceso', label: 'En proceso' },
-                  { value: 'finalizado', label: 'Finalizado' },
-                  { value: 'programado', label: 'Programado' },
-                  { value: 'anulado', label: 'Anulado' },
-                ]}
               />
             </div>
           </div>
@@ -328,6 +329,23 @@ export function ProduccionFormModal({ open, onClose, lote = null, onSave, isLoad
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
               className="w-full px-4 py-2 border border-input bg-input-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div className="modal-field-wide">
+            <label htmlFor="lote_estado" className="block mb-1.5 text-sm font-medium">Estado *</label>
+            <Combobox
+              id="lote_estado"
+              name="estado"
+              value={estado}
+              onValueChange={setEstado}
+              onChange={(e) => setEstado(e.target.value)}
+              options={[
+                { value: 'en_proceso', label: 'En proceso' },
+                { value: 'finalizado', label: 'Finalizado' },
+                { value: 'programado', label: 'Programado' },
+                { value: 'anulado', label: 'Anulado' },
+              ]}
             />
           </div>
 
